@@ -1,0 +1,125 @@
+---
+title: "Tesla and Toyota Stocks Project"
+author: "A. Chen, J. Lund, I. Revilla"
+
+toc: true
+toc-title: "Table of Contents"
+number-sections: true
+format:
+  html:
+    embed-resources: true
+---
+
+# Importing Data
+Imported the Excel file comprising of Tesla and Toyota stock data from the previous 40 days into a new dataset called `DataStocks`. The first 6 records are printed below using `head()`:
+
+```{r, warning=FALSE}
+library(tidyverse)
+library(rio)
+DataStocks=import("/Users/james/General Documents/University /Year Abroad/Economic Statistics/TeslaToyotaStockData.xlsx") # Filepath can be changed 
+head(DataStocks) # Showing the first 6 entries of the dataset
+```
+
+# Data Engineering
+Created a new dataset: `DataIndexStocks` that adds 2 extras columns to `DataStocks` consisting of indices for each the two stocks based on the initial prices of the stocks. An index is calculated by dividing each stock price by its first value. These columns are named `Idx` followed by the ticker symbols. The first 6 records are printed below using `head()`:
+
+```{r}
+DataIndexStocks = DataStocks |> # Piping operator which takes the output of one function and passes it as an argument to another function
+  mutate(IdxTSLA=TSLA/DataStocks$TSLA[1]) |>
+  mutate(IdxTM=TM/DataStocks$TM[1]) # Creating 2 extra columns which show the index of each of the stocks based on their initial values
+head(DataIndexStocks) # Showing the first 6 entries of the data set
+```
+
+# Descriptive Analysis
+
+Calculated the daily growth rates for both stocks' prices and named them `Grwth`followed by the ticker symbol. These values were added as new columns to the previous dataframe `DataIndexStocks` to create a new dataframe: `DataIndexGrowthStocks`. The records are printed below:
+
+```{r}
+
+DataIndexGrowthStocks = DataIndexStocks |>
+  mutate(GrwthTSLA = (TSLA - lag(TSLA))/lag(TSLA)) |>
+  mutate(GrwthTM = (TM - lag(TM))/lag(TM)) # Creating 2 extra columns which show the daily growth rates for both stocks' prices. 
+print(DataIndexGrowthStocks) # lag(TSLA) returns the previous value for the TSLA stock
+
+```
+
+Next, the average daily growth rate for each stock is calculated using `mean(DataIndexGrowthStocks$GrwthTSLA, na.rm = TRUE)` and `mean(DataIndexGrowthStocks$GrwthTM, na.rm = TRUE)`. Setting `na.rm = TRUE` ignores NA values of growth rate in the calculation of the average daily growth rate. The results are shown below: 
+
+```{r}
+#| echo: false
+cat("Average Daily Growth Rate for TSLA:",
+mean(DataIndexGrowthStocks$GrwthTSLA, na.rm = TRUE))
+
+cat("Average Daily Growth Rate for TM:",
+mean(DataIndexGrowthStocks$GrwthTM, na.rm = TRUE)) # na.rm = TRUE to ignore NA values
+# Computing the average growth rates for each stock 
+```
+
+These results suggest that Tesla stock has been slowly declining on average with a daily growth rate of roughly **-0.63%**. On the other hand Toyota stock has been growing slightly on average with a daily growth rate of about **0.19%**. 
+
+# Inferential Analysis
+
+The mean, standard deviation and the mean's confidence interval for the index data of both stocks are calculated.
+
+The mean and standard deviation for TSLA are displayed below: 
+```{r}
+#| echo: false
+cat("Mean for TSLA:", mean(DataIndexGrowthStocks$IdxTSLA))
+cat("Standard Deviation for TSLA:", sd(DataIndexGrowthStocks$IdxTSLA))
+```
+To construct the confidence interval, the standard error of the mean, the t-score that corresponds to the confidence level and the margin of error are needed. First consider the standard error of the mean: 
+```{r}
+TSLAstd = sd(DataIndexGrowthStocks$IdxTSLA) # Standard deviation
+n = nrow(DataIndexGrowthStocks) # Size
+TSLAse  = TSLAstd/sqrt(n) # Standard error 
+print(TSLAse)
+```
+Now find the t-score that corresponds to the confidence level: 
+```{r}
+alphahalf = (1-0.95)/2 # Alpha/2 value assuming a 95% confidence level
+dof = n - 1 # Degrees of freedom
+tscore = qt(alphahalf, df=dof, lower.tail = FALSE) # Returns a positive t-score
+print(tscore)
+```
+Compute the margin of error: 
+```{r}
+marginerror = tscore*TSLAse
+print(marginerror)
+```
+The confidence interval is now just the mean +/- the margin of error:
+```{r}
+mean = mean(DataIndexGrowthStocks$IdxTSLA) # The mean
+lowerbound = mean - marginerror
+upperbound = mean + marginerror
+print(c(lowerbound,upperbound)) # Returning the lower and upper bounds
+```
+
+Now repeating for TM: 
+```{r}
+#| echo: false
+cat("Mean for TM:", mean(DataIndexGrowthStocks$IdxTM))
+cat("Standard Deviation for TM:", sd(DataIndexGrowthStocks$IdxTM))
+```
+
+
+```{r}
+TMsd = sd(DataIndexGrowthStocks$IdxTM) # Standard deviation
+n = nrow(DataIndexGrowthStocks) # Size
+TMse  = TMsd/sqrt(n) # Standard error 
+print(TMse)
+```
+
+```{r}
+TMmarginerror = tscore*TMse
+print(TMmarginerror)
+```
+
+```{r}
+TMmean = mean(DataIndexGrowthStocks$IdxTM) # The mean
+TMlowerbound = TMmean - TMmarginerror
+TMupperbound = TMmean + TMmarginerror
+print(c(TMlowerbound, TMupperbound)) # Returning the lower and upper bounds
+```
+
+Confidence intervals are the range of values for which the true average daily growth rate is likely to fall in given a level of confidence (95% in this case). Wider confidence levels imply more uncertainty with more variability. The confidence levels for Tesla and Toyota do not overlap which suggests that there is a significant difference between the 2 stocks' average daily growth rates. 
+
